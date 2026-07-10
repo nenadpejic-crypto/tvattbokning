@@ -239,45 +239,34 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+let bookingsCache = [];
 let isFirstLoad = true;
 
+// Real-time listener
 onValue(ref(db, 'bookings'), (snapshot) => {
-  const data = snapshot.val();
-  if (data && !isFirstLoad) {
+  bookingsCache = snapshot.val() || [];
+  if (!isFirstLoad) {
     renderAll();
   }
-  if (isFirstLoad) isFirstLoad = false;
+  isFirstLoad = false;
 });
+
+// Load and save functions
+function loadBookings() {
+  return bookingsCache;
+}
+
+function saveBookings(arr) {
+  set(ref(db, 'bookings'), arr);
+  bookingsCache = arr;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const MONTHS_SV = ["Januari","Februari","Mars","April","Maj","Juni","Juli","Augusti","September","Oktober","November","December"];
   const WEEKDAYS_SV_FULL = ["Måndag","Tisdag","Onsdag","Torsdag","Fredag","Lördag","Söndag"];
   const WEEKDAYS_SHORT_MOBILE = ["Mon","Tis","Ons","Tor","Fre","Lör","Sön"];
   const MACHINE_TIMES = ["07:00-10:00","10:00-13:00","13:00-16:00","16:00-19:00","19:00-22:00"];
   const QUICK_TIMES = ["16:00-17:00","18:00-19:00","19:00-20:00","21:00-22:00"];
-  const STORAGE_KEY = "dish_bookings_v1";
-
- async function loadBookings() {
-  return new Promise((resolve) => {
-    onValue(ref(db, 'bookings'), (snapshot) => {
-      const data = snapshot.val();
-      resolve(data || []);
-    }, { onlyOnce: true });
-  });
-}
-
-  function saveBookings(arr) {
-  set(ref(db, 'bookings'), arr);
-}
-  
-  function yyyy_mm_dd(date){ const y=date.getFullYear(), m=('0'+(date.getMonth()+1)).slice(-2), d=('0'+date.getDate()).slice(-2); return y+'-'+m+'-'+d; }
-  function isoWeekNumber(date){
-    const d=new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-  }
-  function formatDateSmall(iso){ const d=new Date(iso + 'T00:00:00'); return d.getDate() + ' ' + MONTHS_SV[d.getMonth()] + ' ' + d.getFullYear(); }
 
   let machinesViewDate = new Date();
   let quickViewDate = new Date();
@@ -288,6 +277,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const quickWrapper = document.getElementById('quick-wrapper');
   const machinesMonthTitle = document.getElementById('machines-month-title');
   const quickMonthTitle = document.getElementById('quick-month-title');
+
+  function yyyy_mm_dd(date){ const y=date.getFullYear(), m=('0'+(date.getMonth()+1)).slice(-2), d=('0'+date.getDate()).slice(-2); return y+'-'+m+'-'+d; }
+  function isoWeekNumber(date){
+    const d=new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+  }
+  function formatDateSmall(iso){ const d=new Date(iso + 'T00:00:00'); return d.getDate() + ' ' + MONTHS_SV[d.getMonth()] + ' ' + d.getFullYear(); }
 
   function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
   function buildMonthWeeks(year, month){
@@ -471,10 +470,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const bookings = loadBookings();
 
-    // NY REGEL: kontrollera om lägenheten redan har någon bokning i samma kalender (alltid, oavsett månad/år)
     const existingAptGlobal = bookings.find(b => b.calendar === activeSlot.calendar && b.apartment === apt);
     if(existingAptGlobal){
-      // mark previous booking in red so user hittar den
       markConflict(existingAptGlobal);
       if(activeSlot.calendar === 'quick'){
         modalError.textContent = 'Du har redan en snabbtvätt bokning. Ta bort den innan du bokar ny.';
@@ -484,7 +481,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // säkerställ att själva slotten fortfarande är ledig
     const slotTaken = bookings.find(b => b.calendar === activeSlot.calendar && b.date === activeSlot.date && b.time === activeSlot.time);
     if(slotTaken){ modalError.textContent = 'Tiden bokades precis av någon annan. Uppdatera sidan.'; renderAll(); return; }
 
@@ -532,38 +528,12 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateClock,1000); updateClock();
 
   let resizeTimer = null;
-  // Firebase setup
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBCJQKCumFC8oxddbGj6vJEgd9_cVawK3Y",
-  authDomain: "tvattbokning-baf92.firebaseapp.com",
-  databaseURL: "https://tvattbokning-baf92-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "tvattbokning-baf92",
-  storageBucket: "tvattbokning-baf92.firebasestorage.app",
-  messagingSenderId: "363994700806",
-  appId: "1:363994700806:web:e20a84f5c94689693ef787"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-let isFirstLoad = true;
-
-onValue(ref(db, 'bookings'), (snapshot) => {
-  const data = snapshot.val();
-  if (data && !isFirstLoad) {
-    renderAll();
-  }
-  if (isFirstLoad) isFirstLoad = false;
-});
   window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(renderAll, 140); });
 
   // initial render
   renderAll();
 
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
-  window.addEventListener('storage', (e)=>{ if(e.key === STORAGE_KEY) renderAll(); });
 });
 </script>
 </body>
