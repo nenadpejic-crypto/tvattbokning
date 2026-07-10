@@ -223,7 +223,31 @@
     <div id="modal-error"></div>
   </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBCJQKCumFC8oxddbGj6vJEgd9_cVawK3Y",
+  authDomain: "tvattbokning-baf92.firebaseapp.com",
+  databaseURL: "https://tvattbokning-baf92-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tvattbokning-baf92",
+  storageBucket: "tvattbokning-baf92.firebasestorage.app",
+  messagingSenderId: "363994700806",
+  appId: "1:363994700806:web:e20a84f5c94689693ef787"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+let isFirstLoad = true;
+
+onValue(ref(db, 'bookings'), (snapshot) => {
+  const data = snapshot.val();
+  if (data && !isFirstLoad) {
+    renderAll();
+  }
+  if (isFirstLoad) isFirstLoad = false;
+});
 document.addEventListener('DOMContentLoaded', () => {
   const MONTHS_SV = ["Januari","Februari","Mars","April","Maj","Juni","Juli","Augusti","September","Oktober","November","December"];
   const WEEKDAYS_SV_FULL = ["Måndag","Tisdag","Onsdag","Torsdag","Fredag","Lördag","Söndag"];
@@ -232,9 +256,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const QUICK_TIMES = ["16:00-17:00","18:00-19:00","19:00-20:00","21:00-22:00"];
   const STORAGE_KEY = "dish_bookings_v1";
 
-  function loadBookings(){ try{ const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }catch(e){ console.error(e); return []; } }
-  function saveBookings(arr){ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+ async function loadBookings() {
+  return new Promise((resolve) => {
+    onValue(ref(db, 'bookings'), (snapshot) => {
+      const data = snapshot.val();
+      resolve(data || []);
+    }, { onlyOnce: true });
+  });
+}
 
+  function saveBookings(arr) {
+  set(ref(db, 'bookings'), arr);
+}
+  
   function yyyy_mm_dd(date){ const y=date.getFullYear(), m=('0'+(date.getMonth()+1)).slice(-2), d=('0'+date.getDate()).slice(-2); return y+'-'+m+'-'+d; }
   function isoWeekNumber(date){
     const d=new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -498,6 +532,31 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateClock,1000); updateClock();
 
   let resizeTimer = null;
+  // Firebase setup
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBCJQKCumFC8oxddbGj6vJEgd9_cVawK3Y",
+  authDomain: "tvattbokning-baf92.firebaseapp.com",
+  databaseURL: "https://tvattbokning-baf92-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tvattbokning-baf92",
+  storageBucket: "tvattbokning-baf92.firebasestorage.app",
+  messagingSenderId: "363994700806",
+  appId: "1:363994700806:web:e20a84f5c94689693ef787"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+let isFirstLoad = true;
+
+onValue(ref(db, 'bookings'), (snapshot) => {
+  const data = snapshot.val();
+  if (data && !isFirstLoad) {
+    renderAll();
+  }
+  if (isFirstLoad) isFirstLoad = false;
+});
   window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(renderAll, 140); });
 
   // initial render
